@@ -1,0 +1,7 @@
+[
+{
+  "directory": "/home/james/code/raster/build",
+  "command": "/usr/bin/cc   -I/usr/include/SDL2    -o CMakeFiles/raster.dir/src/main.c.o   -c /home/james/code/raster/src/main.c",
+  "file": "/home/james/code/raster/src/main.c"
+}
+]
