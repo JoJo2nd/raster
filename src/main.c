@@ -2,6 +2,8 @@
 #include <stdio.h>
 #include "SDL.h"
 #include "vectormath/vectormath_aos.h"
+#include "apis.h"
+
 
 #define SCRN_WIDTH (640)
 #define SCRN_HEIGHT (480)
@@ -78,11 +80,16 @@ void plot_line(int x0, int y0, int x1, int y1, uint32_t c) {
 }
 
 int main(int argc, char** argv) {
-  VmathVector3 v3;
-  v3.x= 0.f;
-
   if (SDL_Init(SDL_INIT_VIDEO)!=0) {
     fprintf(stderr, "Error calling SDL_Init");        
+  }
+
+  obj_model_t model;
+  FILE* f = fopen("./../data/head.obj", "rb");
+  if (f) {
+    obj_initialise(&model);
+    obj_loadFrom(f, &model);
+    fclose(f);
   }
 
   SDL_Window* window = SDL_CreateWindow("SoftwareRaster", 0, 0, SCRN_WIDTH, SCRN_HEIGHT, SDL_WINDOW_SHOWN);    
@@ -95,7 +102,7 @@ int main(int argc, char** argv) {
       if (evt.type == SDL_QUIT)
         return 0;
     }
-
+    
     uint8_t *bptr;
     SDL_RenderClear(renderer);
     SDL_LockTexture(main_surface, NULL, (void**)&main_buffer, &main_bfr_pitch);
@@ -108,16 +115,24 @@ int main(int argc, char** argv) {
         *bptr = 255; ++bptr;
       }
     }
-    plot_line(100, 50, 500, 50, 0xff000000);
-    plot_line(100, 150, 500, 50, 0x00ff0000);
-    plot_line(100, 50, 500, 150, 0x0000ff00);
-    plot_line(400, 50, 200, 150, 0x000000ff);
+    for (uint32_t f=0, fn=model.nFaces; f < fn; ++f) {
+      obj_face_t* pf = &model.faces[f];
+      for (uint32_t v=0; v < 3; ++v) {
+        VmathVector3 v0 = model.verts[pf->f[v]];
+        VmathVector3 v1 = model.verts[pf->f[(v+1)%3]];
+        int x0 = (v0.x+1.f)*(SCRN_WIDTH/2.f);
+        int y0 = (v0.y+1.f)*(SCRN_HEIGHT/2.f);
+        int x1 = (v1.x+1.f)*(SCRN_WIDTH/2.f);
+        int y1 = (v1.y+1.f)*(SCRN_HEIGHT/2.f);
+        plot_line(x0, SCRN_HEIGHT-y0, x1, SCRN_HEIGHT-y1, 0x00000000);
+      }
+    }
+
     SDL_UnlockTexture(main_surface);
     main_buffer = NULL;
     SDL_RenderCopy(renderer, main_surface, NULL, NULL);
     SDL_RenderPresent(renderer);
   }
-
   return 0;
 }
 
