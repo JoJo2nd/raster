@@ -4,9 +4,23 @@
 #include "vectormath/vectormath_aos.h"
 #include "apis.h"
 
+#define DRAW_LINES (0)
+#define DRAW_TRIS (1)
 
 #define SCRN_WIDTH (640)
 #define SCRN_HEIGHT (480)
+
+static inline float minf(float a, float b) {
+  return a < b ? a : b;
+}
+
+static inline float maxf(float a, float b) {
+  return a > b ? a : b;
+}
+
+static inline float clampf(float max, float min, float v) {
+  return v < min ? min : v > max ? max : v;
+}
 
 static inline void swapi(int a, int b) {
   int t = a;
@@ -21,6 +35,45 @@ void plot_pixel(uint32_t x, uint32_t y, uint32_t c) {
   if (x > SCRN_WIDTH || y > SCRN_HEIGHT) return;
   uint32_t* dst = (uint32_t*)(main_buffer + (main_bfr_pitch * y) + (x * 4));
   *dst = c;
+}
+
+vec3_t barycentric(vec3_t* tri, vec3_t p) {
+  vec3_t a = {
+    .x=tri[2].x - tri[0].x,
+    .y=tri[1].x - tri[0].x,
+    .z=tri[0].x - p.x,
+  };
+  vec3_t b = {
+    .x=tri[2].y - tri[0].y,
+    .y=tri[1].y - tri[0].y,
+    .z=tri[0].y - p.y,
+  };
+  vec3_t u;
+  vmathV3Cross(&u, &a, &b);
+  if (fabs(u.y) < 1.f) return (vec3_t){.x=-1.f, .y=1.f, .z=1.f};
+  return (vec3_t){.x=1.f-(u.x+u.y)/u.z, .y=u.y/u.z, .z=u.x/u.z};
+}
+
+void triangle(vec3_t* tri, uint32_t colour) {
+  vec3_t bbmin, bbmax, limit;
+  vmathV3MakeFromElems(&bbmin, SCRN_WIDTH, SCRN_HEIGHT, 1);
+  vmathV3MakeFromElems(&bbmax, 0.f, 0.f, 0.f);
+  vmathV3Copy(&limit, &bbmin);
+  for (uint32_t i=0; i < 3; ++i) {
+    for (uint32_t j=0; j < 2; ++j) {
+      vmathV3SetElem(&bbmin, j, maxf(0.f, minf(vmathV3GetElem(&bbmin, j), vmathV3GetElem(&tri[i], j))));
+      vmathV3SetElem(&bbmax, j, minf(vmathV3GetElem(&limit, j), maxf(vmathV3GetElem(&bbmax, j), vmathV3GetElem(&tri[i], j))));
+    }
+  }
+
+  vec3_t pt;
+  for(pt.x = bbmin.x; pt.x <= bbmax.x; ++pt.x) {
+    for (pt.y = bbmin.y; pt.y <= bbmax.y; ++pt.y) {
+      vec3_t scrn = barycentric(tri, pt);
+      if (scrn.x < 0 || scrn.y < 0 || scrn.z < 0) continue;
+      plot_pixel((uint32_t)pt.x, (uint32_t)pt.y, colour);
+    }
+  }
 }
 
 void plot_line_low(int x0, int y0, int x1, int y1, uint32_t c) {
@@ -115,6 +168,7 @@ int main(int argc, char** argv) {
         *bptr = 255; ++bptr;
       }
     }
+#if DRAW_LINES
     for (uint32_t f=0, fn=model.nFaces; f < fn; ++f) {
       obj_face_t* pf = &model.faces[f];
       for (uint32_t v=0; v < 3; ++v) {
@@ -127,6 +181,32 @@ int main(int argc, char** argv) {
         plot_line(x0, SCRN_HEIGHT-y0, x1, SCRN_HEIGHT-y1, 0x00000000);
       }
     }
+#elif DRAW_TRIS
+    /*
+    vec3_t test[3] = {
+      {0, 0, 0}, 
+      {200, 100, 0},
+      {100, 100, 0},
+    };
+    triangle(test, 0x00FF0000);
+    */
+    uint32_t colours[5] = {
+      0x00FFFF00, 0x00000000, 0x00FF0000, 0x0000FF00, 0x000000FF
+    };
+    for (uint32_t f=0, fn=model.nFaces; f < fn; ++f) {
+      obj_face_t* pf = &model.faces[f];
+      VmathVector3 t[3] = {
+        [0] = model.verts[pf->f[0]],
+        [1] = model.verts[pf->f[1]],
+        [2] = model.verts[pf->f[2]],
+      };
+      for (uint32_t v=0; v < 3; ++v) {
+        t[v].x = (t[v].x+1.f)*(SCRN_WIDTH/2.f);
+        t[v].y = SCRN_HEIGHT-(t[v].y+1.f)*(SCRN_HEIGHT/2.f);
+      }
+      triangle(t, colours[f % 5]);
+    }
+#endif
 
     SDL_UnlockTexture(main_surface);
     main_buffer = NULL;

@@ -113,7 +113,7 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
             obj->verts[obj->nVerts-1].y = d;
           if (parse_mode == parse_mode_vertex_3){            
             obj->verts[obj->nVerts-1].z = d;
-            printf("v %f %f %f\n", obj->verts[obj->nVerts-1].x, obj->verts[obj->nVerts-1].y, obj->verts[obj->nVerts-1].z);
+            //printf("v %f %f %f\n", obj->verts[obj->nVerts-1].x, obj->verts[obj->nVerts-1].y, obj->verts[obj->nVerts-1].z);
           }
           parse_mode++;
           if (parse_mode > parse_mode_vertex_3)
@@ -128,7 +128,7 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
           obj->faces[obj->nFaces-1].f[parse_mode-parse_mode_face_1] = v-1;
           parse_mode++;
           if (parse_mode > parse_mode_face_3) {
-            printf("f %d %d %d\n", obj->faces[obj->nFaces-1].f[0], obj->faces[obj->nFaces-1].f[1], obj->faces[obj->nFaces-1].f[2]);
+            //printf("f %d %d %d\n", obj->faces[obj->nFaces-1].f[0], obj->faces[obj->nFaces-1].f[1], obj->faces[obj->nFaces-1].f[2]);
             parse_mode = parse_mode_none;
           }
         } break;
