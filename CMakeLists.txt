@@ -16,5 +16,5 @@ file(GLOB raster_files
 
 
 add_executable(raster ${raster_files})
-target_link_libraries(raster ${SDL2_LIBRARY})
+target_link_libraries(raster m ${SDL2_LIBRARY})
 

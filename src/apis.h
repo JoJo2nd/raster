@@ -5,6 +5,8 @@
 #include <stdio.h>
 
 typedef VmathVector3 vec3_t;
+typedef VmathMatrix3 mat3_t;
+typedef VmathMatrix4 mat4_t;
 
 struct obj_face_t {
   uint32_t f[3];

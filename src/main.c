@@ -7,8 +7,10 @@
 #define DRAW_LINES (0)
 #define DRAW_TRIS (1)
 
-#define SCRN_WIDTH (640)
-#define SCRN_HEIGHT (480)
+#define SCRN_WIDTH (960)
+#define SCRN_HEIGHT (720)
+
+#define MAKE_U32_COLOR(r, g, b, a) (uint32_t)(((r&0xFF)  << 24) | ((g&0xFF) << 16) | ((b&0xFF) << 8) | ((a&0xFF) << 0))
 
 static inline float minf(float a, float b) {
   return a < b ? a : b;
@@ -163,7 +165,7 @@ int main(int argc, char** argv) {
       bptr = ((uint8_t*)main_buffer) + main_bfr_pitch*y;
       for (uint32_t x=0; x<SCRN_WIDTH; ++x) {
         *bptr = 255; ++bptr;
-        *bptr = 255; ++bptr;
+        *bptr = 0; ++bptr;
         *bptr = 255; ++bptr;
         *bptr = 255; ++bptr;
       }
@@ -195,16 +197,26 @@ int main(int argc, char** argv) {
     };
     for (uint32_t f=0, fn=model.nFaces; f < fn; ++f) {
       obj_face_t* pf = &model.faces[f];
-      VmathVector3 t[3] = {
+      vec3_t t[3] = {
         [0] = model.verts[pf->f[0]],
         [1] = model.verts[pf->f[1]],
         [2] = model.verts[pf->f[2]],
       };
+      vec3_t a, b, n;
+      vmathV3Sub(&a, &model.verts[pf->f[2]], &model.verts[pf->f[0]]);
+      vmathV3Sub(&b, &model.verts[pf->f[1]], &model.verts[pf->f[0]]);
+      vmathV3Cross(&n, &a, &b);
+      vmathV3Normalize(&n, &n);
       for (uint32_t v=0; v < 3; ++v) {
-        t[v].x = (t[v].x+1.f)*(SCRN_WIDTH/2.f);
-        t[v].y = SCRN_HEIGHT-(t[v].y+1.f)*(SCRN_HEIGHT/2.f);
+        t[v].x = floorf((t[v].x+1.f)*(SCRN_WIDTH/2.f));
+        t[v].y = floorf(SCRN_HEIGHT - ((t[v].y+1.f)*(SCRN_HEIGHT/2.f)));
       }
-      triangle(t, colours[f % 5]);
+
+      mat3_t m;
+      if (n.z < 0.f) {
+        uint8_t dot = (uint8_t)roundf((1.f-n.z)*255.f);
+        triangle(t, MAKE_U32_COLOR(dot, dot, dot, 255));
+      }
     }
 #endif
 
