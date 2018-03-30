@@ -1,8 +1,13 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <limits.h>
+#include <float.h>
 #include "SDL.h"
 #include "vectormath/vectormath_aos.h"
 #include "apis.h"
+#define STB_IMAGE_IMPLEMENTATION
+#include "stb/stb_image.h"
+#undef STB_IMAGE_IMPLEMENTATION
 
 #define DRAW_LINES (0)
 #define DRAW_TRIS (1)
@@ -30,13 +35,31 @@ static inline void swapi(int a, int b) {
   b = t;
 }
 
+struct texture_slot_t {
+  uint8_t* data;
+  uint16_t width, height;
+};
+typedef struct texture_slot_t texture_slot_t;
+
 uint8_t* main_buffer;
 int main_bfr_pitch;
+float* z_buffer;
+texture_slot_t tex_slots;
 
 void plot_pixel(uint32_t x, uint32_t y, uint32_t c) {
   if (x > SCRN_WIDTH || y > SCRN_HEIGHT) return;
   uint32_t* dst = (uint32_t*)(main_buffer + (main_bfr_pitch * y) + (x * 4));
   *dst = c;
+}
+
+int z_test(uint32_t x, uint32_t y, float z) {
+  if (x > SCRN_WIDTH || y > SCRN_HEIGHT) return 0;
+  uint32_t idx = (y*SCRN_WIDTH) + x;
+  if (z_buffer[idx] > z) {
+    return 0;
+  }
+  z_buffer[idx] = z;
+  return 1;
 }
 
 vec3_t barycentric(vec3_t* tri, vec3_t p) {
@@ -73,7 +96,12 @@ void triangle(vec3_t* tri, uint32_t colour) {
     for (pt.y = bbmin.y; pt.y <= bbmax.y; ++pt.y) {
       vec3_t scrn = barycentric(tri, pt);
       if (scrn.x < 0 || scrn.y < 0 || scrn.z < 0) continue;
-      plot_pixel((uint32_t)pt.x, (uint32_t)pt.y, colour);
+      pt.z = tri[0].z*scrn.x;
+      pt.z += tri[1].z*scrn.y;
+      pt.z += tri[2].z*scrn.z;
+      if (z_test((uint32_t)pt.x, (uint32_t)pt.y, pt.z)) {
+        plot_pixel((uint32_t)pt.x, (uint32_t)pt.y, colour);
+      }
     }
   }
 }
@@ -147,10 +175,20 @@ int main(int argc, char** argv) {
     fclose(f);
   }
 
+  texture_slot_t adiffuse;
+  {
+    int w, h;
+    adiffuse.data = stbi_load("./../data/ahead_diffuse.tga", &w, &h, NULL, 3);
+    adiffuse.width = (uint16_t)w;
+    adiffuse.height = (uint16_t)h;
+  }
+
   SDL_Window* window = SDL_CreateWindow("SoftwareRaster", 0, 0, SCRN_WIDTH, SCRN_HEIGHT, SDL_WINDOW_SHOWN);    
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
   SDL_Texture* main_surface = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCRN_WIDTH, SCRN_HEIGHT);  
   SDL_Event evt;
+
+  z_buffer = malloc(SCRN_WIDTH*SCRN_HEIGHT*sizeof(float));
 
   for (;;) {
     while (SDL_PollEvent(&evt)) {
@@ -169,6 +207,10 @@ int main(int argc, char** argv) {
         *bptr = 255; ++bptr;
         *bptr = 255; ++bptr;
       }
+    }
+    for (uint32_t i=0, n=SCRN_WIDTH*SCRN_HEIGHT; i<n; ++i) {
+      z_buffer[i] = FLT_MAX;
+      z_buffer[i] = -FLT_MAX;
     }
 #if DRAW_LINES
     for (uint32_t f=0, fn=model.nFaces; f < fn; ++f) {

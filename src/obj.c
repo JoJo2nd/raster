@@ -6,15 +6,14 @@
 #include <string.h>
 
 void obj_initialise(obj_model_t* obj) {
-  obj->nFaces = obj->nRFaces = 0;
-  obj->nVerts = obj->nRVerts = 0;
+  memset(obj, 0, sizeof(obj_model_t));
 }
 
 void obj_release(obj_model_t* obj) {
   free(obj->verts);
   free(obj->faces);
-  obj->nVerts = obj->nRVerts = 0;
-  obj->nFaces = obj->nRFaces = 0;
+  free(obj->uvs);
+  memset(obj, 0, sizeof(obj_model_t));
 }
 
 enum parse_mode_t {
@@ -24,6 +23,8 @@ enum parse_mode_t {
   parse_mode_face_1,
   parse_mode_face_2,
   parse_mode_face_3,
+  parse_mode_uv_1,
+  parse_mode_uv_2,
   parse_mode_none,
 };
 typedef enum parse_mode_t parse_mode_t;
@@ -79,8 +80,10 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
   parse_mode_t parse_mode = parse_mode_none;
   obj->nRVerts = 1024;
   obj->nRFaces = obj->nRVerts*3;
+  obj->nRUVs = obj->nRVerts*3;
   obj->verts = malloc(sizeof(VmathVector3)*obj->nRVerts);
   obj->faces = malloc(sizeof(obj_face_t)*obj->nRFaces);
+  obj->uvs = malloc(sizeof(obj_uv_t)*obj->nRUVs);
 
   int r = getNextToken(token_buffer, sizeof token_buffer, file);
   while (r != EOF) {
@@ -101,7 +104,14 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
               obj->faces = realloc(obj->faces, sizeof(obj_face_t)*obj->nRFaces);
             }
             parse_mode = parse_mode_face_1;
-          } 
+          } else if (strcmp("vt", token_buffer) == 0) {
+            obj->nUVs++;
+            if (obj->nUVs >= obj->nRUVs) {
+              obj->nRUVs *= 2;
+              obj->uvs = realloc(obj->uvs, sizeof(obj_uv_t)*obj->nRUVs);
+            }
+            parse_mode = parse_mode_uv_1;
+          }
         } break;
         case parse_mode_vertex_1:
         case parse_mode_vertex_2:
@@ -125,11 +135,24 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
           int32_t v, n, t;
           sscanf(token_buffer, "%d/%d/%d", &v, &n, &t);
           // Obj files indices 1 base (not zero based!)
-          obj->faces[obj->nFaces-1].f[parse_mode-parse_mode_face_1] = v-1;
+          obj->faces[obj->nFaces-1].f[parse_mode-parse_mode_face_1] = (uint16_t)v-1;
+          obj->faces[obj->nFaces-1].uv[parse_mode-parse_mode_face_1] = (uint16_t)(t-1);
           parse_mode++;
           if (parse_mode > parse_mode_face_3) {
             //printf("f %d %d %d\n", obj->faces[obj->nFaces-1].f[0], obj->faces[obj->nFaces-1].f[1], obj->faces[obj->nFaces-1].f[2]);
             parse_mode = parse_mode_none;
+          }
+        } break;
+        case parse_mode_uv_1:
+        case parse_mode_uv_2: {
+          double d = atof(token_buffer);
+          if (parse_mode == parse_mode_uv_1) 
+            obj->uvs[obj->nUVs-1].u = d;
+          else if (parse_mode_uv_2) 
+            obj->uvs[obj->nUVs-1].v = d;
+          parse_mode++;
+          if (parse_mode > parse_mode_uv_2) {
+            parse_mode = parse_mode_none; 
           }
         } break;
       }
