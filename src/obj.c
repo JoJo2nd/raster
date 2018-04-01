@@ -148,7 +148,7 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
           double d = atof(token_buffer);
           if (parse_mode == parse_mode_uv_1) 
             obj->uvs[obj->nUVs-1].u = d;
-          else if (parse_mode_uv_2) 
+          else if (parse_mode == parse_mode_uv_2) 
             obj->uvs[obj->nUVs-1].v = d;
           parse_mode++;
           if (parse_mode > parse_mode_uv_2) {

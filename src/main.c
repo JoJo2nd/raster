@@ -25,8 +25,14 @@ static inline float maxf(float a, float b) {
   return a > b ? a : b;
 }
 
-static inline float clampf(float max, float min, float v) {
-  return v < min ? min : v > max ? max : v;
+static inline float clampf(float min, float max, float v) {
+  if (v < min) return min;
+  if (v > max) return max;
+  return v;
+}
+
+static inline float lerpf(float a, float b, float t) {
+  return a + (b-a)*t;
 }
 
 static inline void swapi(int a, int b) {
@@ -79,7 +85,34 @@ vec3_t barycentric(vec3_t* tri, vec3_t p) {
   return (vec3_t){.x=1.f-(u.x+u.y)/u.z, .y=u.y/u.z, .z=u.x/u.z};
 }
 
-void triangle(vec3_t* tri, uint32_t colour) {
+vec3_t barycentric2(vec3_t* tri, vec3_t p) {
+  vec3_t *a = tri, *b = tri+1, *c = tri+2;
+  vec3_t v0, v1, v2;
+  vmathV3Sub(&v0, b, a);
+  vmathV3Sub(&v1, c, a);
+  vmathV3Sub(&v2, &p, a);
+  float d00 = vmathV3Dot(&v0, &v0);
+  float d01 = vmathV3Dot(&v0, &v1);
+  float d11 = vmathV3Dot(&v1, &v1);
+  float d20 = vmathV3Dot(&v2, &v0);
+  float d21 = vmathV3Dot(&v2, &v1);
+  float denom = d00 * d11 - d01 * d01;
+  vec3_t r;
+  r.y = (d11*d20 - d01*d21) / denom;
+  r.z = (d00*d21 - d01*d20) / denom;
+  r.x = 1.f - r.y - r.z;
+  return r;
+}
+
+uint32_t sample_colour(float u, float v) {
+  int x = round(clampf(0.0f, tex_slots.width, u*(float)tex_slots.width));
+  int y = round(clampf(0.0f, tex_slots.height, v*(float)tex_slots.height));
+  uint8_t* t = tex_slots.data + (y*tex_slots.width*3) + (x*3);
+  //return MAKE_U32_COLOR(t[0], t[1], t[2], 0xFF);
+  return MAKE_U32_COLOR((uint8_t)(u*255), (uint8_t)(v*255), 0x0, 0xFF);
+}
+
+void triangle(vec3_t* tri, obj_uv_t* uvs, uint32_t colour) {
   vec3_t bbmin, bbmax, limit;
   vmathV3MakeFromElems(&bbmin, SCRN_WIDTH, SCRN_HEIGHT, 1);
   vmathV3MakeFromElems(&bbmax, 0.f, 0.f, 0.f);
@@ -92,14 +125,21 @@ void triangle(vec3_t* tri, uint32_t colour) {
   }
 
   vec3_t pt;
+  float u, v;
   for(pt.x = bbmin.x; pt.x <= bbmax.x; ++pt.x) {
     for (pt.y = bbmin.y; pt.y <= bbmax.y; ++pt.y) {
-      vec3_t scrn = barycentric(tri, pt);
+      vec3_t scrn = barycentric2(tri, pt);
       if (scrn.x < 0 || scrn.y < 0 || scrn.z < 0) continue;
+      //if (!(scrn.y >= 0 && scrn.z >= 0.f && (scrn.y + scrn.z) <= 1.f)) continue;
       pt.z = tri[0].z*scrn.x;
       pt.z += tri[1].z*scrn.y;
       pt.z += tri[2].z*scrn.z;
+
+      u = uvs[0].u*scrn.x + uvs[1].u*scrn.y + uvs[2].u*scrn.z;
+      v = uvs[0].v*scrn.x + uvs[1].v*scrn.y + uvs[2].v*scrn.z;
+
       if (z_test((uint32_t)pt.x, (uint32_t)pt.y, pt.z)) {
+        colour = sample_colour(u, v);
         plot_pixel((uint32_t)pt.x, (uint32_t)pt.y, colour);
       }
     }
@@ -182,6 +222,7 @@ int main(int argc, char** argv) {
     adiffuse.width = (uint16_t)w;
     adiffuse.height = (uint16_t)h;
   }
+  tex_slots = adiffuse;
 
   SDL_Window* window = SDL_CreateWindow("SoftwareRaster", 0, 0, SCRN_WIDTH, SCRN_HEIGHT, SDL_WINDOW_SHOWN);    
   SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, 0);
@@ -244,6 +285,11 @@ int main(int argc, char** argv) {
         [1] = model.verts[pf->f[1]],
         [2] = model.verts[pf->f[2]],
       };
+      obj_uv_t uvs[3] = {
+        [0] = model.uvs[pf->uv[0]],
+        [1] = model.uvs[pf->uv[1]],
+        [2] = model.uvs[pf->uv[2]],
+      };
       vec3_t a, b, n;
       vmathV3Sub(&a, &model.verts[pf->f[2]], &model.verts[pf->f[0]]);
       vmathV3Sub(&b, &model.verts[pf->f[1]], &model.verts[pf->f[0]]);
@@ -257,7 +303,7 @@ int main(int argc, char** argv) {
       mat3_t m;
       if (n.z < 0.f) {
         uint8_t dot = (uint8_t)roundf((1.f-n.z)*255.f);
-        triangle(t, MAKE_U32_COLOR(dot, dot, dot, 255));
+        triangle(t, uvs, MAKE_U32_COLOR(dot, dot, dot, 255));
       }
     }
 #endif
