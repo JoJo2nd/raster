@@ -133,13 +133,22 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
         case parse_mode_face_2:
         case parse_mode_face_3: {
           int32_t v, n, t;
-          sscanf(token_buffer, "%d/%d/%d", &v, &n, &t);
+          sscanf(token_buffer, "%d/%d/%d", &v, &t, &n);
           // Obj files indices 1 base (not zero based!)
           obj->faces[obj->nFaces-1].f[parse_mode-parse_mode_face_1] = (uint16_t)v-1;
           obj->faces[obj->nFaces-1].uv[parse_mode-parse_mode_face_1] = (uint16_t)(t-1);
           parse_mode++;
           if (parse_mode > parse_mode_face_3) {
-            //printf("f %d %d %d\n", obj->faces[obj->nFaces-1].f[0], obj->faces[obj->nFaces-1].f[1], obj->faces[obj->nFaces-1].f[2]);
+            uint16_t v1 = obj->faces[obj->nFaces-1].f[0],
+            v2 = obj->faces[obj->nFaces-1].f[1],
+            v3 = obj->faces[obj->nFaces-1].f[2],
+            t1 = obj->faces[obj->nFaces-1].uv[0],
+            t2 = obj->faces[obj->nFaces-1].uv[1],
+            t3 = obj->faces[obj->nFaces-1].uv[2];
+            printf("face (%f %f %f):(%f %f), (%f %f %f):(%f %f), (%f %f %f):(%f %f)\n", 
+              obj->verts[v1].x, obj->verts[v1].y, obj->verts[v1].z, obj->uvs[t1].u, obj->uvs[t1].v,
+              obj->verts[v2].x, obj->verts[v2].y, obj->verts[v2].z, obj->uvs[t2].u, obj->uvs[t2].v,
+              obj->verts[v3].x, obj->verts[v3].y, obj->verts[v3].z, obj->uvs[t3].u, obj->uvs[t3].v);
             parse_mode = parse_mode_none;
           }
         } break;
@@ -149,7 +158,7 @@ int obj_loadFrom(FILE* file, obj_model_t* obj) {
           if (parse_mode == parse_mode_uv_1) 
             obj->uvs[obj->nUVs-1].u = d;
           else if (parse_mode == parse_mode_uv_2) 
-            obj->uvs[obj->nUVs-1].v = d;
+            obj->uvs[obj->nUVs-1].v = 1.f-d;
           parse_mode++;
           if (parse_mode > parse_mode_uv_2) {
             parse_mode = parse_mode_none; 
