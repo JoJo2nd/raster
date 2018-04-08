@@ -157,6 +157,22 @@ uint32_t clip_tri(vec4_t* tri, vec4_t* clipped_tri) {
   return 3;
 }
 
+/*
+  cull_tri_* -> return 1 if triangle should be culled. tri is expected to be 
+  in normalised device coords. 
+*/
+int cull_tri_cw(vec4_t* tri) {
+  float d = (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) - 
+            (tri[1].y - tri[0].y) * (tri[2].x - tri[0].x);
+  return d < 0.f;
+}
+
+int cull_tri_ccw(vec4_t* tri) {
+  float d = (tri[1].x - tri[0].x) * (tri[2].y - tri[0].y) - 
+            (tri[1].y - tri[0].y) * (tri[2].x - tri[0].x);
+  return d > 0.f;
+}
+
 void triangle(vec3_t* tri, obj_uv_t* uvs, uint32_t colour) {
   vec3_t bbmin, bbmax, limit;
   vmathV3MakeFromElems(&bbmin, SCRN_WIDTH, SCRN_HEIGHT, 1);
@@ -347,8 +363,10 @@ int main(int argc, char** argv) {
   SDL_Event evt;
 
   z_buffer = malloc(SCRN_WIDTH*SCRN_HEIGHT*sizeof(float));
+  main_buffer = malloc(SCRN_WIDTH*SCRN_HEIGHT*4);
+  main_bfr_pitch = SCRN_WIDTH*4;
 
-  vec3_t head_centre = {.0f, .0f, -1.f};
+  vec3_t head_centre = {.0f, .0f, -3.f};
   mat4_t world, view, proj, worldview, worldviewproj;
   /*
     Transforms are as such (NOTE This example uses a Right handed coordinate space):
@@ -378,8 +396,7 @@ int main(int argc, char** argv) {
     vmathM4Mul(&worldviewproj, &proj, &worldview);
     
     uint8_t *bptr;
-    SDL_RenderClear(renderer);
-    SDL_LockTexture(main_surface, NULL, (void**)&main_buffer, &main_bfr_pitch);
+
     for (uint32_t y=0; y<SCRN_HEIGHT; ++y) {
       bptr = ((uint8_t*)main_buffer) + main_bfr_pitch*y;
       for (uint32_t x=0; x<SCRN_WIDTH; ++x) {
@@ -510,6 +527,10 @@ int main(int argc, char** argv) {
             pt[v].z = clipt[ct+v].z / clipt[ct+v].w;
             pt[v].w = clipt[ct+v].w;
           }
+          // cull the triangle before the viewport xform
+          if (cull_tri_cw(pt))
+            continue;
+
           // triangle expects viewport coords not Normalised Device Coordinates.
           for (uint32_t v=0; v < 3; ++v) {
             pt[v].x = roundf((pt[v].x+1.f)*(SCRN_WIDTH/2.f));
@@ -522,8 +543,15 @@ int main(int argc, char** argv) {
     }
 #endif
 
+    SDL_RenderClear(renderer);
+    void* dest_main_buffer;
+    int dest_main_bfr_pitch;
+    SDL_LockTexture(main_surface, NULL, (void**)&dest_main_buffer, &dest_main_bfr_pitch);
+    for (uint32_t i=0; i < SCRN_HEIGHT; ++i) {
+      memcpy(dest_main_buffer + (i*dest_main_bfr_pitch), main_buffer + (i*main_bfr_pitch), main_bfr_pitch);
+    }
     SDL_UnlockTexture(main_surface);
-    main_buffer = NULL;
+    
     SDL_RenderCopy(renderer, main_surface, NULL, NULL);
     SDL_RenderPresent(renderer);
   }
