@@ -1,12 +1,13 @@
 [
 {
-  "directory": "/home/james/code/raster/build",
-  "command": "/usr/bin/cc   -I/usr/include/SDL2  -O2 -g -DNDEBUG   -o CMakeFiles/raster.dir/src/obj.c.o   -c /home/james/code/raster/src/obj.c",
-  "file": "/home/james/code/raster/src/obj.c"
+  "directory": "/media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/build/linux",
+  "command": "/usr/bin/cc   -I/usr/include/SDL2  -O2 -g -DNDEBUG   -o CMakeFiles/raster.dir/src/main.c.o   -c /media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/src/main.c",
+  "file": "/media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/src/main.c"
 },
+
 {
-  "directory": "/home/james/code/raster/build",
-  "command": "/usr/bin/cc   -I/usr/include/SDL2  -O2 -g -DNDEBUG   -o CMakeFiles/raster.dir/src/main.c.o   -c /home/james/code/raster/src/main.c",
-  "file": "/home/james/code/raster/src/main.c"
+  "directory": "/media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/build/linux",
+  "command": "/usr/bin/cc   -I/usr/include/SDL2  -O2 -g -DNDEBUG   -o CMakeFiles/raster.dir/src/obj.c.o   -c /media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/src/obj.c",
+  "file": "/media/james/F2DA0BB5DA0B74DF1/Dropbox/dev/raster/src/obj.c"
 }
 ]
